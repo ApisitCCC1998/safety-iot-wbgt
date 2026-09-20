@@ -97,7 +97,7 @@ function Dashboard() {
             {t('lastUpdated')}: {timestamp ? new Date(timestamp).toLocaleTimeString() : '—'}
           </span>
           <span>
-            {t('source')}: {source === 'esp32' ? t('esp32') : t('mock')}
+            {t('source')}: <span className="font-semibold text-slate-600 dark:text-slate-300">WBGT ESP32</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />

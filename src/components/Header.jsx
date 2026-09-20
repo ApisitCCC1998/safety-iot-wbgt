@@ -1,12 +1,12 @@
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useLang } from '../context/LangContext.jsx'
 import { useSensor } from '../context/SensorContext.jsx'
-import { Sun, Moon, Play, Pause, Wifi, WifiOff, ShieldCheck } from 'lucide-react'
+import { Sun, Moon, Wifi, WifiOff, ShieldCheck } from 'lucide-react'
 
 export default function Header() {
   const { isDark, toggle: toggleTheme } = useTheme()
   const { lang, toggle: toggleLang, t } = useLang()
-  const { isConnected, isStreaming, toggleStream } = useSensor()
+  const { isConnected } = useSensor()
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 shadow-sm">
@@ -31,31 +31,28 @@ export default function Header() {
           {/* Controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
 
-            {/* WS Connection indicator */}
-            <div className={`hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium border
-              ${isConnected
-                ? 'border-green-400 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
-                : 'border-red-400 text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20'}`}
+            {/* ESP32 Hardware Status Badge */}
+            <div
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold border transition-all ${
+                isConnected
+                  ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 shadow-sm shadow-emerald-500/10'
+                  : 'border-rose-500/40 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 shadow-sm shadow-rose-500/10'
+              }`}
             >
-              {isConnected
-                ? <Wifi className="w-3.5 h-3.5" />
-                : <WifiOff className="w-3.5 h-3.5" />}
-              <span className="hidden md:inline">{isConnected ? t('connected') : t('disconnected')}</span>
+              {isConnected ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <Wifi className="w-3.5 h-3.5" />
+                  <span>ESP32: Online</span>
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <WifiOff className="w-3.5 h-3.5" />
+                  <span>ESP32: Offline</span>
+                </>
+              )}
             </div>
-
-            {/* Play/Pause Stream */}
-            <button
-              onClick={toggleStream}
-              aria-label={isStreaming ? t('pauseStream') : t('playStream')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border
-                ${isStreaming
-                  ? 'bg-amber-50 border-amber-400 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-500 dark:hover:bg-amber-900/30'
-                  : 'bg-green-50 border-green-400 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-500 dark:hover:bg-green-900/30'}`}
-            >
-              {isStreaming
-                ? <><Pause className="w-3.5 h-3.5" /><span className="hidden sm:inline">{t('pauseStream')}</span></>
-                : <><Play  className="w-3.5 h-3.5" /><span className="hidden sm:inline">{t('playStream')}</span></>}
-            </button>
 
             {/* Language toggle */}
             <button
