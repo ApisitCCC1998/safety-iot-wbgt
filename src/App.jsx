@@ -8,6 +8,7 @@ import AlertBanner from './components/AlertBanner.jsx'
 import WorkRestAdvisory from './components/WorkRestAdvisory.jsx'
 import WBGTTrendChart from './components/WBGTTrendChart.jsx'
 import IncidentDonutChart from './components/IncidentDonutChart.jsx'
+import ThresholdStats from './components/ThresholdStats.jsx'
 import HazardRegister from './components/HazardRegister.jsx'
 import WeatherWidget from './components/WeatherWidget.jsx'
 import { useSensor } from './context/SensorContext.jsx'
@@ -31,7 +32,7 @@ function Dashboard() {
 
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        {/* Metric Cards Row */}
+        {/* 1. Metric Cards Row */}
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             label={t('wbgtIndex')}
@@ -64,7 +65,7 @@ function Dashboard() {
           />
         </section>
 
-        {/* Charts + Advisory + Weather Row */}
+        {/* 2. Charts + Advisory + Weather Row */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
             <WBGTTrendChart />
@@ -76,11 +77,15 @@ function Dashboard() {
           </div>
         </section>
 
-        {/* Donut Chart Row */}
+        {/* 3. Analytics & Hazard Register Row */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-1">
+          {/* ฝั่งซ้าย (col-span-1): สถิติกราฟโดนัท + สถิติการเกินเกณฑ์สะสม */}
+          <div className="lg:col-span-1 flex flex-col gap-4">
             <IncidentDonutChart />
+            <ThresholdStats />
           </div>
+
+          {/* ฝั่งขวา (col-span-2): ตารางบันทึกความเสี่ยงและอุบัติการณ์ */}
           <div className="lg:col-span-2">
             <HazardRegister />
           </div>
