@@ -6,7 +6,7 @@ import { Sun, Moon, Wifi, WifiOff, ShieldCheck } from 'lucide-react'
 export default function Header() {
   const { isDark, toggle: toggleTheme } = useTheme()
   const { lang, toggle: toggleLang, t } = useLang()
-  const { isConnected } = useSensor()
+  const { isDeviceActive } = useSensor() // ใช้สถานะของบอร์ดฮาร์ดแวร์จริง
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 shadow-sm">
@@ -31,15 +31,15 @@ export default function Header() {
           {/* Controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
 
-            {/* ESP32 Hardware Status Badge */}
+            {/* ESP32 Hardware Status Badge (Online เฉพาะตอนส่งข้อมูลจริงเข้ามา) */}
             <div
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold border transition-all ${
-                isConnected
+                isDeviceActive
                   ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 shadow-sm shadow-emerald-500/10'
                   : 'border-rose-500/40 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 shadow-sm shadow-rose-500/10'
               }`}
             >
-              {isConnected ? (
+              {isDeviceActive ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <Wifi className="w-3.5 h-3.5" />

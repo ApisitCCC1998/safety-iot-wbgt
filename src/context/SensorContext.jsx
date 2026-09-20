@@ -2,9 +2,8 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 
 const SensorContext = createContext(null)
 
-const MAX_HISTORY = 60 // เก็บข้อมูล 60 จุดล่าสุดสำหรับกราฟแนวโน้ม
+const MAX_HISTORY = 60
 
-// ── ค่าเริ่มต้นเป็นค่าว่าง เพื่อรอสัญญาณจริงจาก ESP32 ───────────────────────────
 const EMPTY_READING = {
   temp: null,
   humidity: null,
@@ -14,7 +13,6 @@ const EMPTY_READING = {
   source: 'waiting',
 }
 
-// ── สลับ URL อัตโนมัติ: localhost หรือ Render ───────────────────────────────────
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 const WS_URL = isLocal 
   ? 'ws://localhost:3001/ws' 
@@ -26,12 +24,27 @@ const API_BASE = isLocal
 
 export function SensorProvider({ children }) {
   const [latestReading, setLatestReading] = useState(EMPTY_READING)
-  const [history, setHistory]             = useState([]) // เริ่มต้นเป็นตารางว่าง ไม่นำค่าจำลองมาพล็อต
-  const [isConnected, setIsConnected]     = useState(false)
-  const [isStreaming, setIsStreaming]     = useState(true)
+  const [history, setHistory]             = useState([])
+  const [isConnected, setIsConnected]     = useState(false) // สถานะ Server WS
+  const [isDeviceActive, setIsDeviceActive] = useState(false) // สถานะบอร์ด ESP32 จริง (เริ่มต้นเป็น false)
   const [logCount, setLogCount]           = useState(0)
-  const wsRef        = useRef(null)
-  const reconnectRef = useRef(null)
+
+  const wsRef          = useRef(null)
+  const reconnectRef   = useRef(null)
+  const lastPacketTime = useRef(0)
+
+  // ตรวจสอบสัญญาณทุกๆ 3 วินาที ถ้าไม่มีข้อมูลจาก ESP32 นานเกิน 15 วินาที ให้ตัดเป็น Offline
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now()
+      if (lastPacketTime.current === 0 || now - lastPacketTime.current > 15000) {
+        setIsDeviceActive(false)
+      } else {
+        setIsDeviceActive(true)
+      }
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [])
 
   const connectWS = useCallback(() => {
     try {
@@ -39,7 +52,6 @@ export function SensorProvider({ children }) {
       wsRef.current = ws
 
       ws.onopen = () => {
-        console.log('[WS] Connected successfully to:', WS_URL)
         setIsConnected(true)
         if (reconnectRef.current) {
           clearTimeout(reconnectRef.current)
@@ -51,24 +63,19 @@ export function SensorProvider({ children }) {
         try {
           const data = JSON.parse(event.data)
 
-          // ── Status / Control messages ──────────────────────────────
-          if (data.type === 'status') {
-            setIsStreaming(data.isStreaming)
-            if (typeof data.logCount === 'number') setLogCount(data.logCount)
-            return
-          }
           if (data.type === 'logCleared') {
             setLogCount(0)
             setHistory([])
             return
           }
 
-          // ── กรองข้อมูล: ปฏิเสธ Mock Data รับเฉพาะข้อมูลจาก ESP32 จริง ──
           if (data.wbgt !== undefined) {
-            // หากข้อมูลระบุว่าเป็น mock ให้ตัดทิ้งทันที
-            if (data.source === 'mock') {
-              return
-            }
+            // ปฏิเสธ Mock Data
+            if (data.source === 'mock') return
+
+            // เมื่อมีข้อมูลจาก ESP32 ส่งเข้ามาจริง
+            lastPacketTime.current = Date.now()
+            setIsDeviceActive(true)
 
             setLatestReading(data)
             if (typeof data.logCount === 'number') setLogCount(data.logCount)
@@ -84,6 +91,7 @@ export function SensorProvider({ children }) {
 
       ws.onclose = () => {
         setIsConnected(false)
+        setIsDeviceActive(false)
         reconnectRef.current = setTimeout(connectWS, 3000)
       }
 
@@ -102,17 +110,6 @@ export function SensorProvider({ children }) {
     }
   }, [connectWS])
 
-  const toggleStream = useCallback(async () => {
-    try {
-      const res  = await fetch(`${API_BASE}/api/mock/toggle`, { method: 'POST' })
-      const data = await res.json()
-      setIsStreaming(data.isStreaming)
-    } catch (e) {
-      console.error('[API] Toggle error:', e)
-    }
-  }, [])
-
-  /** Clear backend sensor log and reset local counter */
   const clearLog = useCallback(async () => {
     try {
       const res  = await fetch(`${API_BASE}/api/sensor-data/clear`, { method: 'DELETE' })
@@ -127,8 +124,8 @@ export function SensorProvider({ children }) {
 
   return (
     <SensorContext.Provider value={{
-      latestReading, history, isConnected, isStreaming,
-      logCount, toggleStream, clearLog,
+      latestReading, history, isConnected, isDeviceActive,
+      logCount, clearLog,
     }}>
       {children}
     </SensorContext.Provider>
