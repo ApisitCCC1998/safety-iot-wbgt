@@ -1,0 +1,35 @@
+{
+  "name": "safety-iot-dashboard",
+  "version": "1.0.0",
+  "description": "Safety & IoT Heat Stress Monitoring Dashboard",
+  "type": "module",
+  "scripts": {
+    "dev:server": "node server/index.js",
+    "dev:client": "vite",
+    "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"cyan,magenta\" \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "lucide-react": "^0.447.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.13.3",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "postcss": "^8.4.47",
+    "puppeteer": "^25.11.0",
+    "tailwindcss": "^3.4.14",
+    "vite": "^5.4.8"
+  },
+  "allowScripts": {
+    "puppeteer@25.11.0": true,
+    "esbuild@0.21.5": true
+  }
+}
