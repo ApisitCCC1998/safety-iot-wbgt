@@ -13,24 +13,32 @@ const DEFAULT_READING = {
   source: 'init',
 }
 
+// ── สลับ URL อัตโนมัติ: ถ้าเปิดในเครื่องใช้ localhost ถ้าเปิดบน Vercel ให้ชี้ไปที่ Render ──
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+const WS_URL = isLocal 
+  ? 'ws://localhost:3001/ws' 
+  : 'wss://safety-iot-wbgt.onrender.com/ws'
+
+const API_BASE = isLocal 
+  ? 'http://localhost:3001' 
+  : 'https://safety-iot-wbgt.onrender.com'
+
 export function SensorProvider({ children }) {
   const [latestReading, setLatestReading] = useState(DEFAULT_READING)
   const [history, setHistory]             = useState([DEFAULT_READING])
   const [isConnected, setIsConnected]     = useState(false)
-  const [isStreaming, setIsStreaming]      = useState(true)
+  const [isStreaming, setIsStreaming]     = useState(true)
   const [logCount, setLogCount]           = useState(0)
   const wsRef        = useRef(null)
   const reconnectRef = useRef(null)
 
   const connectWS = useCallback(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl    = `${protocol}//${window.location.host}/ws`
-
     try {
-      const ws = new WebSocket(wsUrl)
+      const ws = new WebSocket(WS_URL)
       wsRef.current = ws
 
       ws.onopen = () => {
+        console.log('[WS] Connected successfully to:', WS_URL)
         setIsConnected(true)
         if (reconnectRef.current) {
           clearTimeout(reconnectRef.current)
@@ -90,7 +98,7 @@ export function SensorProvider({ children }) {
 
   const toggleStream = useCallback(async () => {
     try {
-      const res  = await fetch('/api/mock/toggle', { method: 'POST' })
+      const res  = await fetch(`${API_BASE}/api/mock/toggle`, { method: 'POST' })
       const data = await res.json()
       setIsStreaming(data.isStreaming)
     } catch (e) {
@@ -101,7 +109,7 @@ export function SensorProvider({ children }) {
   /** Clear backend sensor log and reset local counter */
   const clearLog = useCallback(async () => {
     try {
-      const res  = await fetch('/api/sensor-data/clear', { method: 'DELETE' })
+      const res  = await fetch(`${API_BASE}/api/sensor-data/clear`, { method: 'DELETE' })
       const data = await res.json()
       setLogCount(0)
       setHistory([])
