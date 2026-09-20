@@ -5,7 +5,7 @@ import { useSensor } from '../context/SensorContext.jsx'
 import { getSeverityColors } from '../utils/wbgtLogic.js'
 import { exportCSV } from '../utils/csvExport.js'
 import ReportHazardModal from './ReportHazardModal.jsx'
-import { ShieldAlert, Download, Plus, Clock, AlertTriangle, Trash2, RotateCcw, CheckCircle2 } from 'lucide-react'
+import { ShieldAlert, Download, Plus, Trash2, RotateCcw, CheckCircle2 } from 'lucide-react'
 
 export const SEED_HAZARDS = [
   { id: 'HZ-001', timestamp: '2026-09-19 06:30', area: 'Rooftop Zone A',   category: 'Heat Stress',  severity: 'critical', status: 'open'       },
@@ -30,17 +30,12 @@ function StatusBadge({ status, t }) {
 
 export default function HazardRegister() {
   const { t } = useLang()
-  
-  // เชื่อมต่อ State กลาง (HazardContext) และค่าเซ็นเซอร์สด (SensorContext)
-  const { hazards, addHazard, clearAllHazards, resetDemoData, activeHazardsCount } = useHazard()
+  const { hazards, addHazard, clearAllHazards, resetDemoData } = useHazard()
   const { latestReading } = useSensor()
-
   const [modalOpen, setModalOpen] = useState(false)
-  const daysLTI = 47 // static KPI
 
-  // ── [มิติที่ 2: แนบค่าตรวจวัดสิ่งแวดล้อมสดลงในใบรายงาน] ──────────────────────
+  // ── [แนบค่าตรวจวัดสิ่งแวดล้อมสดลงในใบรายงาน] ───────────────────────────
   const handleNewHazard = ({ area, category, severity, description }) => {
-    // ดึงค่า WBGT และสภาพอากาศขณะที่กดรายงาน
     const envSnapshot = latestReading?.wbgt != null
       ? ` [IoT Snapshot: WBGT ${latestReading.wbgt.toFixed(1)}°C, Ta ${latestReading.temp?.toFixed(1) ?? '-'}°C, RH ${latestReading.humidity?.toFixed(1) ?? '-'}%]`
       : ''
@@ -61,19 +56,16 @@ export default function HazardRegister() {
     addHazard(newRecord)
   }
 
-  // ล้างรายการทั้งหมดผ่าน HazardContext
   const handleClearAll = () => {
     const confirmed = window.confirm('คุณต้องการล้างรายการ Hazard & Incident ทั้งหมดใช่หรือไม่?')
     if (!confirmed) return
     clearAllHazards()
   }
 
-  // โหลดข้อมูลตัวอย่างเดิมกลับมาผ่าน HazardContext
   const handleReset = () => {
     if (typeof resetDemoData === 'function') {
       resetDemoData(SEED_HAZARDS)
     } else {
-      // Fallback
       SEED_HAZARDS.forEach((item) => addHazard(item))
     }
   }
@@ -96,31 +88,6 @@ export default function HazardRegister() {
   return (
     <>
       <div className="card p-5 flex flex-col gap-4 h-full">
-
-        {/* KPI Row - ตัวเลขนับซิงค์ตรงจาก HazardContext */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-extrabold text-green-600 dark:text-green-400 tabular-nums">{daysLTI}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{t('daysWithoutLTI')}</p>
-            </div>
-          </div>
-
-          <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-extrabold text-red-600 dark:text-red-400 tabular-nums">
-                {activeHazardsCount}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{t('activeHazards')}</p>
-            </div>
-          </div>
-        </div>
 
         {/* Table Header Controls */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
