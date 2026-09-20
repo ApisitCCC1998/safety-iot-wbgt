@@ -2,18 +2,19 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 
 const SensorContext = createContext(null)
 
-const MAX_HISTORY = 60  // keep last 60 readings for trend chart
+const MAX_HISTORY = 60 // เก็บข้อมูล 60 จุดล่าสุดสำหรับกราฟแนวโน้ม
 
-const DEFAULT_READING = {
-  temp: 34.5,
-  humidity: 72.0,
-  globeTemp: 38.0,
-  wbgt: 30.5,
-  timestamp: new Date().toISOString(),
-  source: 'init',
+// ── ค่าเริ่มต้นเป็นค่าว่าง เพื่อรอสัญญาณจริงจาก ESP32 ───────────────────────────
+const EMPTY_READING = {
+  temp: null,
+  humidity: null,
+  globeTemp: null,
+  wbgt: null,
+  timestamp: null,
+  source: 'waiting',
 }
 
-// ── สลับ URL อัตโนมัติ: ถ้าเปิดในเครื่องใช้ localhost ถ้าเปิดบน Vercel ให้ชี้ไปที่ Render ──
+// ── สลับ URL อัตโนมัติ: localhost หรือ Render ───────────────────────────────────
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 const WS_URL = isLocal 
   ? 'ws://localhost:3001/ws' 
@@ -24,8 +25,8 @@ const API_BASE = isLocal
   : 'https://safety-iot-wbgt.onrender.com'
 
 export function SensorProvider({ children }) {
-  const [latestReading, setLatestReading] = useState(DEFAULT_READING)
-  const [history, setHistory]             = useState([DEFAULT_READING])
+  const [latestReading, setLatestReading] = useState(EMPTY_READING)
+  const [history, setHistory]             = useState([]) // เริ่มต้นเป็นตารางว่าง ไม่นำค่าจำลองมาพล็อต
   const [isConnected, setIsConnected]     = useState(false)
   const [isStreaming, setIsStreaming]     = useState(true)
   const [logCount, setLogCount]           = useState(0)
@@ -50,7 +51,7 @@ export function SensorProvider({ children }) {
         try {
           const data = JSON.parse(event.data)
 
-          // ── Status / control messages ──────────────────────────────
+          // ── Status / Control messages ──────────────────────────────
           if (data.type === 'status') {
             setIsStreaming(data.isStreaming)
             if (typeof data.logCount === 'number') setLogCount(data.logCount)
@@ -62,8 +63,13 @@ export function SensorProvider({ children }) {
             return
           }
 
-          // ── Sensor reading ─────────────────────────────────────────
+          // ── กรองข้อมูล: ปฏิเสธ Mock Data รับเฉพาะข้อมูลจาก ESP32 จริง ──
           if (data.wbgt !== undefined) {
+            // หากข้อมูลระบุว่าเป็น mock ให้ตัดทิ้งทันที
+            if (data.source === 'mock') {
+              return
+            }
+
             setLatestReading(data)
             if (typeof data.logCount === 'number') setLogCount(data.logCount)
             setHistory((prev) => {
