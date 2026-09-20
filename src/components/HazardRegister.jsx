@@ -3,8 +3,9 @@ import { useLang } from '../context/LangContext.jsx'
 import { getSeverityColors } from '../utils/wbgtLogic.js'
 import { exportCSV } from '../utils/csvExport.js'
 import ReportHazardModal from './ReportHazardModal.jsx'
-import { ShieldAlert, Download, Plus, Clock, AlertTriangle } from 'lucide-react'
+import { ShieldAlert, Download, Plus, Clock, AlertTriangle, Trash2, RotateCcw, CheckCircle2 } from 'lucide-react'
 
+const STORAGE_KEY = 'safety_hazard_register'
 let idCounter = 9
 
 const SEED_HAZARDS = [
@@ -30,12 +31,24 @@ function StatusBadge({ status, t }) {
 
 export default function HazardRegister() {
   const { t } = useLang()
-  const [hazards, setHazards] = useState(SEED_HAZARDS)
+
+  // ดึงข้อมูลจาก LocalStorage ถ้าเคยเคลียร์ไว้จะจำค่าว่างเปล่า
+  const [hazards, setHazards] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved !== null) return JSON.parse(saved)
+    } catch (e) {
+      console.error('Failed to parse hazards from storage:', e)
+    }
+    return SEED_HAZARDS
+  })
+
   const [modalOpen, setModalOpen] = useState(false)
 
   const activeCount = hazards.filter((h) => h.status === 'open' || h.status === 'inProgress').length
   const daysLTI = 47 // static KPI
 
+  // ฟังก์ชันเพิ่มรายการใหม่
   const handleNewHazard = ({ area, category, severity, description }) => {
     const newRecord = {
       id: `HZ-${String(idCounter++).padStart(3, '0')}`,
@@ -49,10 +62,30 @@ export default function HazardRegister() {
       status: 'open',
       description,
     }
-    setHazards((prev) => [newRecord, ...prev])
+    setHazards((prev) => {
+      const updated = [newRecord, ...prev]
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+      return updated
+    })
+  }
+
+  // ฟังก์ชันล้างรายการทั้งหมดให้ตารางโล่ง
+  const handleClearAll = () => {
+    const confirmed = window.confirm('คุณต้องการล้างรายการ Hazard & Incident ทั้งหมดให้เป็นตารางว่างใช่หรือไม่?')
+    if (!confirmed) return
+
+    setHazards([])
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([]))
+  }
+
+  // ฟังก์ชันดึงข้อมูลตัวอย่างกลับมา
+  const handleResetData = () => {
+    setHazards(SEED_HAZARDS)
+    localStorage.removeItem(STORAGE_KEY)
   }
 
   const handleExport = () => {
+    if (hazards.length === 0) return
     exportCSV(
       hazards.map((h) => ({
         ID: h.id,
@@ -92,7 +125,7 @@ export default function HazardRegister() {
           </div>
         </div>
 
-        {/* Table Header */}
+        {/* Table Header Controls */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 text-slate-500" />
@@ -100,53 +133,93 @@ export default function HazardRegister() {
               {t('hazardRegister')}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={handleExport} className="btn-ghost text-xs !px-3 !py-1.5">
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* ปุ่ม Reset ข้อมูลตัวอย่าง */}
+            {hazards.length === 0 && (
+              <button
+                onClick={handleResetData}
+                className="btn-ghost text-xs !px-2.5 !py-1.5 text-slate-500 hover:text-blue-600 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5"
+                title="โหลดข้อมูลตัวอย่างกลับมา"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Reset Demo Data</span>
+              </button>
+            )}
+
+            {/* ปุ่ม Clear All */}
+            <button
+              onClick={handleClearAll}
+              disabled={hazards.length === 0}
+              className="btn-ghost text-xs !px-2.5 !py-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-900/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+              title="ล้างรายการทั้งหมดให้ตารางโล่ง"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear All</span>
+            </button>
+
+            {/* ปุ่ม Export CSV */}
+            <button
+              onClick={handleExport}
+              disabled={hazards.length === 0}
+              className="btn-ghost text-xs !px-3 !py-1.5 border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
               <Download className="w-3.5 h-3.5" />
               {t('exportCSV')}
             </button>
-            <button onClick={() => setModalOpen(true)} className="btn-primary text-xs !px-3 !py-1.5">
+
+            {/* ปุ่ม Report New Hazard */}
+            <button onClick={() => setModalOpen(true)} className="btn-primary text-xs !px-3 !py-1.5 flex items-center gap-1.5">
               <Plus className="w-3.5 h-3.5" />
               {t('reportHazard')}
             </button>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-auto flex-1 -mx-1">
-          <table className="w-full text-sm min-w-[640px]">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-700">
-                {[t('id'), t('timestamp'), t('area'), t('category'), t('severity'), t('status')].map((h) => (
-                  <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-              {hazards.map((row, i) => (
-                <tr
-                  key={row.id}
-                  className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors
-                    ${i === 0 && row.id.startsWith('HZ-0') ? '' : ''}
-                    ${row.status === 'open' ? 'bg-red-50/30 dark:bg-red-900/5' : ''}`}
-                >
-                  <td className="px-3 py-2.5 font-mono text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{row.id}</td>
-                  <td className="px-3 py-2.5 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{row.timestamp}</td>
-                  <td className="px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200">{row.area}</td>
-                  <td className="px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300">{row.category}</td>
-                  <td className="px-3 py-2.5">
-                    <span className={`badge capitalize ${getSeverityColors(row.severity)}`}>{t(row.severity)}</span>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <StatusBadge status={row.status} t={t} />
-                  </td>
+        {/* Table Body or Clean State */}
+        {hazards.length === 0 ? (
+          <div className="flex-1 min-h-[220px] flex flex-col items-center justify-center text-xs text-slate-400 dark:text-slate-500 gap-2 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-6 text-center my-2">
+            <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+            <p className="font-bold text-sm text-slate-700 dark:text-slate-200">ไม่มีรายการความเสี่ยงค้างในระบบ (All Hazards Cleared)</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              สถานะความปลอดภัยปกติ คุณสามารถกดปุ่ม "+ Report New Hazard" เพื่อบันทึกรายการใหม่ได้ทันที
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-auto flex-1 -mx-1">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-700">
+                  {[t('id'), t('timestamp'), t('area'), t('category'), t('severity'), t('status')].map((h) => (
+                    <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                {hazards.map((row) => (
+                  <tr
+                    key={row.id}
+                    className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors
+                      ${row.status === 'open' ? 'bg-red-50/30 dark:bg-red-900/5' : ''}`}
+                  >
+                    <td className="px-3 py-2.5 font-mono text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{row.id}</td>
+                    <td className="px-3 py-2.5 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{row.timestamp}</td>
+                    <td className="px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200">{row.area}</td>
+                    <td className="px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300">{row.category}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={`badge capitalize ${getSeverityColors(row.severity)}`}>{t(row.severity)}</span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <StatusBadge status={row.status} t={t} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <ReportHazardModal
