@@ -9,6 +9,10 @@ import { useTheme } from '../context/ThemeContext.jsx'
 import { CHART_REF_LINE } from '../utils/wbgtLogic.js'
 import { TrendingUp, Download, Trash2, Database } from 'lucide-react'
 
+// ── ตรวจสอบ URL อัตโนมัติ: ชี้ไป Render เมื่ออยู่บนเว็บจริง ──────────────────────
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+const API_BASE = isLocal ? 'http://localhost:3001' : 'https://safety-iot-wbgt.onrender.com'
+
 function formatTime(timestamp) {
   if (!timestamp) return ''
   try {
@@ -81,9 +85,9 @@ export default function WBGTTrendChart() {
             </span>
           </div>
 
-          {/* Export Sensor Log CSV */}
+          {/* Export Sensor Log CSV - ดึงตรงจาก Render */}
           <a
-            href="/api/sensor-data/export-csv"
+            href={`${API_BASE}/api/sensor-data/export-csv`}
             download
             className="btn-ghost text-xs !px-3 !py-1.5 flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200 dark:border-slate-700"
             title={t('exportSensorLog')}
