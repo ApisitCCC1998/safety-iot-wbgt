@@ -1,6 +1,7 @@
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import { LangProvider } from './context/LangContext.jsx'
 import { SensorProvider } from './context/SensorContext.jsx'
+import { HazardProvider } from './context/HazardContext.jsx'
 import Header from './components/Header.jsx'
 import MetricCard from './components/MetricCard.jsx'
 import AlertBanner from './components/AlertBanner.jsx'
@@ -109,7 +110,9 @@ export default function App() {
     <ThemeProvider>
       <LangProvider>
         <SensorProvider>
-          <Dashboard />
+          <HazardProvider>
+            <Dashboard />
+          </HazardProvider>
         </SensorProvider>
       </LangProvider>
     </ThemeProvider>

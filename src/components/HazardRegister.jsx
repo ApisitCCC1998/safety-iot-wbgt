@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { useLang } from '../context/LangContext.jsx'
+import { useHazard } from '../context/HazardContext.jsx'
+import { useSensor } from '../context/SensorContext.jsx'
 import { getSeverityColors } from '../utils/wbgtLogic.js'
 import { exportCSV } from '../utils/csvExport.js'
 import ReportHazardModal from './ReportHazardModal.jsx'
 import { ShieldAlert, Download, Plus, Clock, AlertTriangle, Trash2, RotateCcw, CheckCircle2 } from 'lucide-react'
 
-const STORAGE_KEY = 'safety_hazard_register'
-let idCounter = 9
-
-const SEED_HAZARDS = [
+export const SEED_HAZARDS = [
   { id: 'HZ-001', timestamp: '2026-09-19 06:30', area: 'Rooftop Zone A',   category: 'Heat Stress',  severity: 'critical', status: 'open'       },
   { id: 'HZ-002', timestamp: '2026-09-18 14:15', area: 'Assembly Line B',  category: 'Ergonomic',    severity: 'medium',   status: 'inProgress' },
   { id: 'HZ-003', timestamp: '2026-09-18 09:00', area: 'Electrical Room',  category: 'Electrical',   severity: 'high',     status: 'open'       },
@@ -31,57 +30,52 @@ function StatusBadge({ status, t }) {
 
 export default function HazardRegister() {
   const { t } = useLang()
-
-  // ดึงข้อมูลจาก LocalStorage ถ้าเคยเคลียร์ไว้จะจำค่าว่างเปล่า
-  const [hazards, setHazards] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved !== null) return JSON.parse(saved)
-    } catch (e) {
-      console.error('Failed to parse hazards from storage:', e)
-    }
-    return SEED_HAZARDS
-  })
+  
+  // เชื่อมต่อ State กลาง (HazardContext) และค่าเซ็นเซอร์สด (SensorContext)
+  const { hazards, addHazard, clearAllHazards, resetDemoData, activeHazardsCount } = useHazard()
+  const { latestReading } = useSensor()
 
   const [modalOpen, setModalOpen] = useState(false)
-
-  const activeCount = hazards.filter((h) => h.status === 'open' || h.status === 'inProgress').length
   const daysLTI = 47 // static KPI
 
-  // ฟังก์ชันเพิ่มรายการใหม่
+  // ── [มิติที่ 2: แนบค่าตรวจวัดสิ่งแวดล้อมสดลงในใบรายงาน] ──────────────────────
   const handleNewHazard = ({ area, category, severity, description }) => {
+    // ดึงค่า WBGT และสภาพอากาศขณะที่กดรายงาน
+    const envSnapshot = latestReading?.wbgt != null
+      ? ` [IoT Snapshot: WBGT ${latestReading.wbgt.toFixed(1)}°C, Ta ${latestReading.temp?.toFixed(1) ?? '-'}°C, RH ${latestReading.humidity?.toFixed(1) ?? '-'}%]`
+      : ''
+
     const newRecord = {
-      id: `HZ-${String(idCounter++).padStart(3, '0')}`,
+      id: `HZ-${String(Date.now()).slice(-3)}`,
       timestamp: new Date().toLocaleString('en-GB', {
         year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit',
       }).replace(',', ''),
       area,
-      category: t(category),
+      category: t(category) || category,
       severity,
       status: 'open',
-      description,
+      description: `${description || ''}${envSnapshot}`,
     }
-    setHazards((prev) => {
-      const updated = [newRecord, ...prev]
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-      return updated
-    })
+
+    addHazard(newRecord)
   }
 
-  // ฟังก์ชันล้างรายการทั้งหมดให้ตารางโล่ง
+  // ล้างรายการทั้งหมดผ่าน HazardContext
   const handleClearAll = () => {
-    const confirmed = window.confirm('คุณต้องการล้างรายการ Hazard & Incident ทั้งหมดให้เป็นตารางว่างใช่หรือไม่?')
+    const confirmed = window.confirm('คุณต้องการล้างรายการ Hazard & Incident ทั้งหมดใช่หรือไม่?')
     if (!confirmed) return
-
-    setHazards([])
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([]))
+    clearAllHazards()
   }
 
-  // ฟังก์ชันดึงข้อมูลตัวอย่างกลับมา
-  const handleResetData = () => {
-    setHazards(SEED_HAZARDS)
-    localStorage.removeItem(STORAGE_KEY)
+  // โหลดข้อมูลตัวอย่างเดิมกลับมาผ่าน HazardContext
+  const handleReset = () => {
+    if (typeof resetDemoData === 'function') {
+      resetDemoData(SEED_HAZARDS)
+    } else {
+      // Fallback
+      SEED_HAZARDS.forEach((item) => addHazard(item))
+    }
   }
 
   const handleExport = () => {
@@ -103,7 +97,7 @@ export default function HazardRegister() {
     <>
       <div className="card p-5 flex flex-col gap-4 h-full">
 
-        {/* KPI Row */}
+        {/* KPI Row - ตัวเลขนับซิงค์ตรงจาก HazardContext */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
@@ -114,12 +108,15 @@ export default function HazardRegister() {
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{t('daysWithoutLTI')}</p>
             </div>
           </div>
+
           <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
               <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-red-600 dark:text-red-400 tabular-nums">{activeCount}</p>
+              <p className="text-2xl font-extrabold text-red-600 dark:text-red-400 tabular-nums">
+                {activeHazardsCount}
+              </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{t('activeHazards')}</p>
             </div>
           </div>
@@ -135,10 +132,10 @@ export default function HazardRegister() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* ปุ่ม Reset ข้อมูลตัวอย่าง */}
+            {/* ปุ่ม Reset Demo Data */}
             {hazards.length === 0 && (
               <button
-                onClick={handleResetData}
+                onClick={handleReset}
                 className="btn-ghost text-xs !px-2.5 !py-1.5 text-slate-500 hover:text-blue-600 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5"
                 title="โหลดข้อมูลตัวอย่างกลับมา"
               >
@@ -176,7 +173,7 @@ export default function HazardRegister() {
           </div>
         </div>
 
-        {/* Table Body or Clean State */}
+        {/* Table Body / Clean State */}
         {hazards.length === 0 ? (
           <div className="flex-1 min-h-[220px] flex flex-col items-center justify-center text-xs text-slate-400 dark:text-slate-500 gap-2 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-6 text-center my-2">
             <CheckCircle2 className="w-10 h-10 text-emerald-500" />
