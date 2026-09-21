@@ -8,11 +8,14 @@ const EMPTY_READING = {
   temp: null,
   humidity: null,
   globeTemp: null,
+  wetBulb: null,
   wbgt: null,
   timestamp: null,
   source: 'waiting',
+  mode: 'outdoor',
 }
 
+// สลับ URL อัตโนมัติ: localhost หรือ Render
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 const WS_URL = isLocal 
   ? 'ws://localhost:3001/ws' 
@@ -25,8 +28,9 @@ const API_BASE = isLocal
 export function SensorProvider({ children }) {
   const [latestReading, setLatestReading] = useState(EMPTY_READING)
   const [history, setHistory]             = useState([])
-  const [isConnected, setIsConnected]     = useState(false) // สถานะ Server WS
-  const [isDeviceActive, setIsDeviceActive] = useState(false) // สถานะบอร์ด ESP32 จริง (เริ่มต้นเป็น false)
+  const [isConnected, setIsConnected]     = useState(false)
+  const [isDeviceActive, setIsDeviceActive] = useState(false)
+  const [currentMode, setCurrentMode]     = useState('outdoor') // โหมดคำนวณ WBGT
   const [logCount, setLogCount]           = useState(0)
 
   const wsRef          = useRef(null)
@@ -44,6 +48,22 @@ export function SensorProvider({ children }) {
       }
     }, 3000)
     return () => clearInterval(timer)
+  }, [])
+
+  // ฟังก์ชันส่งคำสั่งสลับโหมด กลางแจ้ง / ในร่ม ไปที่ Render Cloud
+  const switchMode = useCallback(async (newMode) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: newMode }),
+      })
+      if (res.ok) {
+        setCurrentMode(newMode)
+      }
+    } catch (e) {
+      console.error('[API] Error switching mode:', e)
+    }
   }, [])
 
   const connectWS = useCallback(() => {
@@ -73,7 +93,12 @@ export function SensorProvider({ children }) {
             // ปฏิเสธ Mock Data
             if (data.source === 'mock') return
 
-            // เมื่อมีข้อมูลจาก ESP32 ส่งเข้ามาจริง
+            // อัปเดตโหมดตามที่อุปกรณ์แจ้งมา (ถ้ามี)
+            if (data.mode) {
+              setCurrentMode(data.mode)
+            }
+
+            // รับข้อมูลเมื่อมาจากบอร์ดฮาร์ดแวร์จริง (รองรับทั้ง esp32 และ esp32-hardware)
             lastPacketTime.current = Date.now()
             setIsDeviceActive(true)
 
@@ -112,7 +137,7 @@ export function SensorProvider({ children }) {
 
   const clearLog = useCallback(async () => {
     try {
-      const res  = await fetch(`${API_BASE}/api/sensor-data/clear`, { method: 'DELETE' })
+      const res = await fetch(`${API_BASE}/api/sensor-data/clear`, { method: 'DELETE' })
       const data = await res.json()
       setLogCount(0)
       setHistory([])
@@ -125,6 +150,7 @@ export function SensorProvider({ children }) {
   return (
     <SensorContext.Provider value={{
       latestReading, history, isConnected, isDeviceActive,
+      currentMode, switchMode,
       logCount, clearLog,
     }}>
       {children}

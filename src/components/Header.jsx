@@ -1,12 +1,18 @@
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useLang } from '../context/LangContext.jsx'
 import { useSensor } from '../context/SensorContext.jsx'
-import { Sun, Moon, Wifi, WifiOff, ShieldCheck } from 'lucide-react'
+import { Sun, Moon, Wifi, WifiOff, ShieldCheck, SunMedium, Building } from 'lucide-react'
 
 export default function Header() {
   const { isDark, toggle: toggleTheme } = useTheme()
   const { lang, toggle: toggleLang, t } = useLang()
-  const { isDeviceActive } = useSensor() // ใช้สถานะของบอร์ดฮาร์ดแวร์จริง
+  const { isDeviceActive, currentMode, switchMode } = useSensor()
+
+  // ฟังก์ชันคลิกสลับโหมด กลางแจ้ง <-> ในร่ม
+  const handleToggleMode = () => {
+    const nextMode = currentMode === 'outdoor' ? 'indoor' : 'outdoor'
+    switchMode(nextMode)
+  }
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 shadow-sm">
@@ -31,7 +37,30 @@ export default function Header() {
           {/* Controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
 
-            {/* ESP32 Hardware Status Badge (Online เฉพาะตอนส่งข้อมูลจริงเข้ามา) */}
+            {/* ปุ่มสลับโหมด WBGT: กลางแจ้ง (Outdoor) / ในร่ม (Indoor) */}
+            <button
+              onClick={handleToggleMode}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                currentMode === 'indoor'
+                  ? 'border-indigo-400 text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40'
+                  : 'border-amber-400 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+              }`}
+              title="คลิกเพื่อสลับสูตรคำนวณ WBGT ตาม ISO 7243"
+            >
+              {currentMode === 'indoor' ? (
+                <>
+                  <Building className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>โหมด: ในร่ม (Indoor)</span>
+                </>
+              ) : (
+                <>
+                  <SunMedium className="w-3.5 h-3.5 text-amber-500" />
+                  <span>โหมด: กลางแจ้ง (Outdoor)</span>
+                </>
+              )}
+            </button>
+
+            {/* ESP32 Hardware Status Badge */}
             <div
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold border transition-all ${
                 isDeviceActive
@@ -71,6 +100,7 @@ export default function Header() {
             >
               {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
             </button>
+
           </div>
         </div>
       </div>
