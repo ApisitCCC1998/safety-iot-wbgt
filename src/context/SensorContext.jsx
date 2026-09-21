@@ -51,18 +51,22 @@ export function SensorProvider({ children }) {
   }, [])
 
   // ฟังก์ชันส่งคำสั่งสลับโหมด กลางแจ้ง / ในร่ม ไปที่ Render Cloud
-  const switchMode = useCallback(async (newMode) => {
+const switchMode = useCallback(async (newMode) => {
+    // 1. เปลี่ยนสถานะบนปุ่มหน้าจอทันทีที่คลิก
+    setCurrentMode(newMode)
+
+    // 2. ส่งคำสั่งไปแจ้ง Render ในเบื้องหลัง
     try {
       const res = await fetch(`${API_BASE}/api/mode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: newMode }),
       })
-      if (res.ok) {
-        setCurrentMode(newMode)
+      if (!res.ok) {
+        console.warn('[API] Backend /api/mode returned status:', res.status)
       }
     } catch (e) {
-      console.error('[API] Error switching mode:', e)
+      console.error('[API] Failed to post mode to Render:', e)
     }
   }, [])
 
