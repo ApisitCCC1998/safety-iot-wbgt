@@ -128,18 +128,13 @@ app.post('/api/sensor-data', (req, res) => {
     })
   }
 
-  // อัปเดตโหมดตามที่อุปกรณ์แจ้งมา (ถ้ามี)
-  if (mode === 'indoor' || mode === 'outdoor') {
-    currentMode = mode
-  }
-
   const payload = {
     temp,
     humidity,
     globeTemp,
     wetBulb: wetBulb ?? null,
     wbgt,
-    mode: currentMode,
+    mode: currentMode, // ยึดโหมดจาก Server ที่ Dashboard เป็นคนสั่ง
     timestamp: new Date().toISOString(),
     source: 'esp32',
     type: 'sensor',
