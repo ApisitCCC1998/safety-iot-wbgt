@@ -88,36 +88,35 @@ const switchMode = useCallback(async (newMode) => {
           const data = JSON.parse(event.data)
 
           if (data.type === 'logCleared') {
-            setLogCount(0)
-            setHistory([])
+           setLogCount(0)
+           setHistory([])
+           return
+          }
+
+          // ✅ ใหม่: handle modeChanged event จาก Backend
+          if (data.type === 'modeChanged') {
+            setCurrentMode(data.mode)
             return
           }
 
           if (data.wbgt !== undefined) {
-            // ปฏิเสธ Mock Data
             if (data.source === 'mock') return
 
-            // อัปเดตโหมดตามที่อุปกรณ์แจ้งมา (ถ้ามี)
-            if (data.mode) {
-              setCurrentMode(data.mode)
-            }
+          // ✅ ลบ if (data.mode) ออกแล้ว — ไม่ override mode จาก sensor
 
-            // รับข้อมูลเมื่อมาจากบอร์ดฮาร์ดแวร์จริง (รองรับทั้ง esp32 และ esp32-hardware)
-            lastPacketTime.current = Date.now()
-            setIsDeviceActive(true)
-
-            setLatestReading(data)
-            if (typeof data.logCount === 'number') setLogCount(data.logCount)
-            setHistory((prev) => {
-              const next = [...prev, data]
-              return next.slice(-MAX_HISTORY)
-            })
-          }
-        } catch (e) {
-          console.error('[WS] Parse error:', e)
+          lastPacketTime.current = Date.now()
+          setIsDeviceActive(true)
+          setLatestReading(data)
+          if (typeof data.logCount === 'number') setLogCount(data.logCount)
+          setHistory((prev) => {
+            const next = [...prev, data]
+            return next.slice(-MAX_HISTORY)
+          })
         }
+      } catch (e) {
+        console.error('[WS] Parse error:', e)
       }
-
+    }
       ws.onclose = () => {
         setIsConnected(false)
         setIsDeviceActive(false)
