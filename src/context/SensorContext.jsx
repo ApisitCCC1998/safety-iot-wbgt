@@ -15,14 +15,15 @@ const EMPTY_READING = {
   mode: 'outdoor',
 }
 
-// สลับ URL อัตโนมัติ: localhost หรือ Render
-const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-const WS_URL = isLocal 
-  ? 'ws://localhost:3001/ws' 
+const isLocal = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+
+const WS_URL = isLocal
+  ? 'ws://localhost:3001/ws'
   : 'wss://safety-iot-wbgt.onrender.com/ws'
 
-const API_BASE = isLocal 
-  ? 'http://localhost:3001' 
+const API_BASE = isLocal
+  ? 'http://localhost:3001'
   : 'https://safety-iot-wbgt.onrender.com'
 
 export function SensorProvider({ children }) {
@@ -30,14 +31,14 @@ export function SensorProvider({ children }) {
   const [history, setHistory]             = useState([])
   const [isConnected, setIsConnected]     = useState(false)
   const [isDeviceActive, setIsDeviceActive] = useState(false)
-  const [currentMode, setCurrentMode]     = useState('outdoor') // โหมดคำนวณ WBGT
+  const [currentMode, setCurrentMode]     = useState('outdoor')
   const [logCount, setLogCount]           = useState(0)
 
   const wsRef          = useRef(null)
   const reconnectRef   = useRef(null)
   const lastPacketTime = useRef(0)
 
-  // ตรวจสอบสัญญาณทุกๆ 3 วินาที ถ้าไม่มีข้อมูลจาก ESP32 นานเกิน 15 วินาที ให้ตัดเป็น Offline
+  // ตรวจสอบ Device Heartbeat ทุก 3 วินาที
   useEffect(() => {
     const timer = setInterval(() => {
       const now = Date.now()
@@ -50,23 +51,18 @@ export function SensorProvider({ children }) {
     return () => clearInterval(timer)
   }, [])
 
-  // ฟังก์ชันส่งคำสั่งสลับโหมด กลางแจ้ง / ในร่ม ไปที่ Render Cloud
-const switchMode = useCallback(async (newMode) => {
-    // 1. เปลี่ยนสถานะบนปุ่มหน้าจอทันทีที่คลิก
+  // ✅ switchMode: เปลี่ยน UI ทันที + POST ไป Backend
+  const switchMode = useCallback(async (newMode) => {
     setCurrentMode(newMode)
-
-    // 2. ส่งคำสั่งไปแจ้ง Render ในเบื้องหลัง
     try {
       const res = await fetch(`${API_BASE}/api/mode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: newMode }),
       })
-      if (!res.ok) {
-        console.warn('[API] Backend /api/mode returned status:', res.status)
-      }
+      if (!res.ok) console.warn('[API] /api/mode status:', res.status)
     } catch (e) {
-      console.error('[API] Failed to post mode to Render:', e)
+      console.error('[API] Failed to post mode:', e)
     }
   }, [])
 
@@ -87,36 +83,42 @@ const switchMode = useCallback(async (newMode) => {
         try {
           const data = JSON.parse(event.data)
 
+          // ── logCleared ─────────────────────────────
           if (data.type === 'logCleared') {
-           setLogCount(0)
-           setHistory([])
-           return
+            setLogCount(0)
+            setHistory([])
+            return
           }
 
-          // ✅ ใหม่: handle modeChanged event จาก Backend
+          // ✅ modeChanged: รับโหมดจาก Backend
+          // (เกิดเมื่อ ESP32 หรือ User อื่นเปลี่ยนโหมด)
           if (data.type === 'modeChanged') {
             setCurrentMode(data.mode)
             return
           }
 
+          // ── Sensor Reading ──────────────────────────
           if (data.wbgt !== undefined) {
+            // ปฏิเสธ Mock Data
             if (data.source === 'mock') return
 
-          // ✅ ลบ if (data.mode) ออกแล้ว — ไม่ override mode จาก sensor
+            // ✅ ไม่ override mode จาก sensor reading
+            // (mode จะ update เฉพาะจาก modeChanged event)
 
-          lastPacketTime.current = Date.now()
-          setIsDeviceActive(true)
-          setLatestReading(data)
-          if (typeof data.logCount === 'number') setLogCount(data.logCount)
-          setHistory((prev) => {
-            const next = [...prev, data]
-            return next.slice(-MAX_HISTORY)
-          })
+            lastPacketTime.current = Date.now()
+            setIsDeviceActive(true)
+            setLatestReading(data)
+            if (typeof data.logCount === 'number') setLogCount(data.logCount)
+            setHistory((prev) => {
+              const next = [...prev, data]
+              return next.slice(-MAX_HISTORY)
+            })
+          }
+        } catch (e) {
+          console.error('[WS] Parse error:', e)
         }
-      } catch (e) {
-        console.error('[WS] Parse error:', e)
       }
-    }
+
       ws.onclose = () => {
         setIsConnected(false)
         setIsDeviceActive(false)

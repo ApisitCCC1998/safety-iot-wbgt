@@ -13,13 +13,16 @@ import HazardRegister from './components/HazardRegister.jsx'
 import WeatherWidget from './components/WeatherWidget.jsx'
 import { useSensor } from './context/SensorContext.jsx'
 import { useLang } from './context/LangContext.jsx'
-import { Thermometer, Droplets, Sun, Activity } from 'lucide-react'
+// ✅ เพิ่ม Waves สำหรับ Tnw Card
+import { Thermometer, Droplets, Sun, Activity, Waves } from 'lucide-react'
 import { DANGER_THRESHOLD } from './utils/wbgtLogic.js'
 
 function Dashboard() {
   const { latestReading, isConnected } = useSensor()
   const { t } = useLang()
-  const { temp, humidity, globeTemp, wbgt, timestamp, source } = latestReading
+
+  // ✅ เพิ่ม wetBulb ใน destructure
+  const { temp, humidity, globeTemp, wetBulb, wbgt, timestamp } = latestReading
 
   const showDangerAlert = wbgt > DANGER_THRESHOLD
 
@@ -27,13 +30,13 @@ function Dashboard() {
     <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
       <Header />
 
-      {/* Danger Alert Banner */}
       {showDangerAlert && <AlertBanner />}
 
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        {/* 1. Metric Cards Row */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. Metric Cards Row — ✅ เพิ่มเป็น 5 Cards */}
+        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+
           <MetricCard
             label={t('wbgtIndex')}
             value={wbgt?.toFixed(1)}
@@ -63,6 +66,17 @@ function Dashboard() {
             icon={<Sun className="w-5 h-5" />}
             variant="globe"
           />
+
+          {/* ✅ Tnw Card ใหม่ — Natural Wet Bulb Temperature */}
+          <MetricCard
+            label="Wet Bulb Temp"
+            value={wetBulb != null ? wetBulb?.toFixed(1) : '—'}
+            unit="°C"
+            icon={<Waves className="w-5 h-5" />}
+            variant="wetbulb"
+            subtitle="น้ำหนัก 70% ในสูตร WBGT"
+          />
+
         </section>
 
         {/* 2. Charts + Advisory + Weather Row */}
@@ -70,7 +84,6 @@ function Dashboard() {
           <div className="lg:col-span-2">
             <WBGTTrendChart />
           </div>
-          {/* Right sidebar: Weather Widget stacked above Work-Rest Advisory */}
           <div className="flex flex-col gap-4">
             <WeatherWidget />
             <WorkRestAdvisory />
@@ -79,19 +92,16 @@ function Dashboard() {
 
         {/* 3. Analytics & Hazard Register Row */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* ฝั่งซ้าย (col-span-1): สถิติกราฟโดนัท + สถิติการเกินเกณฑ์สะสม */}
           <div className="lg:col-span-1 flex flex-col gap-4">
             <IncidentDonutChart />
             <ThresholdStats />
           </div>
-
-          {/* ฝั่งขวา (col-span-2): ตารางบันทึกความเสี่ยงและอุบัติการณ์ */}
           <div className="lg:col-span-2">
             <HazardRegister />
           </div>
         </section>
 
-        {/* Footer status bar */}
+        {/* Footer */}
         <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 dark:text-slate-500 pb-4">
           <span>
             {t('lastUpdated')}: {timestamp ? new Date(timestamp).toLocaleTimeString() : '—'}
